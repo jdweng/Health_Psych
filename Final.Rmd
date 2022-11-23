@@ -1,0 +1,83 @@
+---
+title: "Final"
+author: "Josh Wenger"
+date: '2022-04-24'
+output: html_document
+---
+
+```{r}
+library(psych)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(janitor)
+library(effsize)
+library (lmtest)
+```
+
+```{r}
+josh.0 <- read_csv("dataforR.csv")
+josh1 <- clean_names(josh.0)
+josh <- josh1[complete.cases(josh1[ , c('cm', 'scl90total')]), ]
+cmc <- cut(josh$cm,br=c(-.01,0.1,1.1),labels=c("NoMal","Mal"))
+josh$cmc <- cmc
+```
+
+
+```{r}
+cor.test(josh$hr,josh$hrv,method=c("pearson"))
+ggplot(data=josh, mapping = aes(x=hr, y=hrv)) +
+  labs(title="Heart Rate Variability and Heart Rate", x="HR",y="HRV") +
+  geom_point() + geom_smooth(method="lm", se=FALSE)
+```
+
+```{r}
+lm <- lm(scl90total ~ sic_total, data = josh)
+summary(lm)
+ggplot(data=josh, mapping = aes(sic_total,scl90total))+
+  geom_point() +
+  geom_smooth(method="lm", se = FALSE, color='blue')+
+  labs(title="Psychopathology by Symptoms of Illness", x="Symptoms of Illness (SIC Total)",
+       y="Psychopathology (SCL90 Total)")
+```
+
+```{r}
+mlm <- lm(scl90total ~ sic_total + cmc, data = josh)
+summary(mlm)
+
+ggplot(data=josh, mapping = aes(x=sic_total,y=scl90total, color=cmc)) +
+  geom_point() + theme_classic() + 
+  labs(title="Psychopathology by Symptoms of Illness and Childhood Maltreatment", 
+       x="Symptoms of Illness (SIC Total)", y= "Psychopathology (SCL90 Total)",
+       color="Maltreatment") +
+  geom_smooth(method="lm", se = FALSE) + scale_color_manual(values=c("sky blue","maroon"))
+```
+
+
+```{r}
+t.test(data=josh, scl90total ~ cmc)
+cohen.d(josh$scl90total, josh$cmc)
+
+scl90avgdata <- josh %>%
+  group_by(cmc) %>%
+  summarize(mean_scl90 = mean(scl90total))
+
+ggplot(scl90avgdata, 
+       aes(x = cmc, 
+           y = mean_scl90, fill=cmc)) +
+  geom_bar(stat = "identity") +
+  labs(title= "Psychopathology by Maltreatment", x="Maltreatment", y="Psychopathology (Average SCL90 Score)")+
+  scale_fill_manual(values=c("sky blue","maroon"))
+```
+
+This is a collection of four tests and four subsequent plots from Susannah's health psychology data. The choice of these particular plots and analyses was based off of what is most applicable and useful to psychology research. The first block after loading the libraries imports the data (josh.0), then changes the variable titles to lower case letters and underscores instead of spaces (josh1), and removes incomplete cases from the variables cm and scl90total to get rid of NA in the visualizations (josh). The next line changes the variable cm (which is coded as 0 for non-maltreated and 1 for maltreated) to categorical since R read it as continuous. It also changes the codified numbers into the labels "NoMal" and "Mal" for 0 and 1 respectively. These changes are implemented by creating the new object cmc. The next line then adds the variable cmc into the josh data set.
+
+The first plot is a scatterplot of HRV and HR (this is what I failed to do when playing with the data before). I run a pearson's correlation test and add a line of best fit to the plot. The second section is a simple linear regression and visualization predicting SCL90 score (a measure of psychopathology) from SIC score (a measure of current physical health in the form of tracking symptoms of illness). The third section expands on this by running a multiple regression adding the categorical variable of childhood maltreatment sorted into the dichotomous Mal or NoMal conditions. The visualization for the multiple regression adds the third variable by separating participants into their respective maltreatment conditions using color (red chosen for Mal and blue for NonMal based on the general associations of blue as positive and red as negative). The fourth and final section runs an independent samples t-test (and Cohen's d) comparing SCL90 score between maltreated and non-maltreated individuals. The bar graph shows the average SCL90 score for each group. Color for this bar graph was chosen using the same logic as for the multiple regression.
+
+The first test/plot highlights the negative relationship between HRV and HR; that is, individuals with a higher resting heart rate tend to have lower heart rate variability and vice versa. The second and third tests/plots show us that individuals scoring high on our measure of psychopathology are generally more likely to report more symptoms of illness. Additionally, we see generally higher scores on both of these for maltreated individuals compared to non-maltreated. Some of this may come from a few maltreated individuals that scored exceptionally high on one or both of these measures. The final test/plot tells us that there is a significant difference in psychopathology between maltreated and non-maltreated individuals such that maltreated individuals have a much higher average SCL90 score.
+
+```{r}
+bptest(mlm)
+bptest(lm)
+```
+
